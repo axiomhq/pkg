@@ -25,15 +25,15 @@ projects.
 ### Install using `go get`
 
 ```shell
-$ go get github.com/axiomhq/pkg/...
+go get github.com/axiomhq/pkg/...
 ```
 
 ### Install from source
 
 ```shell
-$ git clone https://github.com/axiomhq/pkg.git
-$ cd pkg
-$ make # Run linters, sanitizers and test suits
+git clone https://github.com/axiomhq/pkg.git
+cd pkg
+make # Run linters, sanitizers and test suits
 ```
 
 ## License
