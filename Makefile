@@ -1,26 +1,26 @@
 # TOOLCHAIN
-GO		:= CGO_ENABLED=0 GOBIN=$(CURDIR)/bin go
-GOFMT	:= $(GO)fmt
+GO	  := CGO_ENABLED=0 GOBIN=$(CURDIR)/bin go
+GOFMT := $(GO)fmt
 
 # ENVIRONMENT
-VERBOSE		=
+VERBOSE =
 
 # GO TOOLS
-GOLANGCI_LINT	:= bin/golangci-lint
-GOTESTSUM		:= bin/gotestsum
+GOLANGCI_LINT := bin/golangci-lint
+GOTESTSUM	  := bin/gotestsum
 
 # MISC
-COVERPROFILE	:= coverage.out
-DIST_DIR		:= dist
+COVERPROFILE := coverage.out
+DIST_DIR	 := dist
 
 # FLAGS
-GO_TEST_FLAGS		:= -race -coverprofile=$(COVERPROFILE)
+GO_TEST_FLAGS := -race -coverprofile=$(COVERPROFILE) -tags=netgo
 
 # DEPENDENCIES
 GOMODDEPS = go.mod go.sum
 
 # Enable verbose test output if explicitly set.
-GOTESTSUM_FLAGS	=
+GOTESTSUM_FLAGS =
 ifdef VERBOSE
 	GOTESTSUM_FLAGS += --format=standard-verbose
 endif
@@ -37,12 +37,12 @@ all: dep fmt lint test ## Run dep, fmt, lint and test
 .PHONY: clean
 clean: ## Remove build and test artifacts
 	@echo ">> cleaning up artifacts"
-	@rm -rf $(COVERPROFILE) $(DIST_DIR)
+	@rm -rf bin $(DIST_DIR) $(COVERPROFILE) dep.stamp
 
-.PHONY: cover
-cover: $(COVERPROFILE) ## Calculate the code coverage score
+.PHONY: coverage
+coverage: $(COVERPROFILE) ## Calculate the code coverage score
 	@echo ">> calculating code coverage"
-	@$(GO) tool cover -func=$(COVERPROFILE) | tail -n1
+	@$(GO) tool cover -func=$(COVERPROFILE) | grep total | awk '{print $$3}'
 
 .PHONY: dep-clean
 dep-clean: ## Remove obsolete dependencies
