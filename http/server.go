@@ -9,7 +9,8 @@ import (
 )
 
 // Server implements a http server which handles request using the configured
-// `http.Handler`.
+// `http.Handler`. It provides graceful shutdown capabilities using
+// `context.Context` propagation.
 type Server struct {
 	lis net.Listener
 	srv *http.Server
