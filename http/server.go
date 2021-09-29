@@ -2,7 +2,6 @@ package http
 
 import (
 	"context"
-	"log"
 	"net"
 	"net/http"
 	"time"
@@ -17,12 +16,14 @@ type Server struct {
 
 	doneCh chan struct{}
 	errCh  chan error
+
+	shutdownTimeout time.Duration
 }
 
 // NewServer creates a new http server listening on the configured address and
 // handling requests using the configured `http.Handler`. An error is returned
 // if the address the server should listen on is already in use.
-func NewServer(addr string, handler http.Handler) (*Server, error) {
+func NewServer(addr string, handler http.Handler, options ...Option) (*Server, error) {
 	// Create tcp listener upfront to make sure the address to listen on is not
 	// blocked.
 	lis, err := net.Listen("tcp", addr)
@@ -31,24 +32,32 @@ func NewServer(addr string, handler http.Handler) (*Server, error) {
 	}
 
 	// Create new http server.
-	srv := &http.Server{
-		Addr:     addr,
-		Handler:  handler,
-		ErrorLog: log.Default(),
-
-		// Timeouts.
-		ReadTimeout:  time.Second * 5,
-		WriteTimeout: time.Second * 10,
-		IdleTimeout:  time.Second * 60,
-	}
-
-	return &Server{
+	srv := &Server{
 		lis: lis,
-		srv: srv,
+		srv: &http.Server{
+			Addr:    addr,
+			Handler: handler,
+
+			// Timeouts.
+			ReadTimeout:  time.Second * 5,
+			WriteTimeout: time.Second * 10,
+			IdleTimeout:  time.Second * 60,
+		},
 
 		doneCh: make(chan struct{}),
 		errCh:  make(chan error),
-	}, nil
+
+		shutdownTimeout: time.Second * 5,
+	}
+
+	// Apply the supplied options.
+	for _, option := range options {
+		if err := option(srv); err != nil {
+			return nil, err
+		}
+	}
+
+	return srv, nil
 }
 
 // ListenAddr returns the address the http server is listening on.
@@ -86,7 +95,15 @@ func (s *Server) Run(ctx context.Context) {
 }
 
 // Shutdown stops the http server gracefully.
-func (s *Server) Shutdown(ctx context.Context) error {
+func (s *Server) Shutdown() error {
+	ctx, cancel := context.WithTimeout(context.Background(), s.shutdownTimeout)
+	defer cancel()
+
+	return s.ShutdownCtx(ctx)
+}
+
+// ShutdownCtx stops the http server gracefully but respects the context.
+func (s *Server) ShutdownCtx(ctx context.Context) error {
 	// Shutdown the http server.
 	s.srv.SetKeepAlivesEnabled(false)
 	if err := s.srv.Shutdown(ctx); err != nil {
