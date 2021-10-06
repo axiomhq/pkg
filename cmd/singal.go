@@ -5,8 +5,8 @@ import (
 	"syscall"
 )
 
-// DefaultSignals are the default signals to catch and act upon.
-func DefaultSignals() []os.Signal {
+// DefaultExitSignals are the default signals to catch and exit upon.
+func DefaultExitSignals() []os.Signal {
 	return []os.Signal{
 		os.Interrupt,
 		os.Kill,

@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 
 	"github.com/axiomhq/axiom-go/axiom"
 	"go.uber.org/zap"
@@ -13,26 +14,26 @@ import (
 	"github.com/axiomhq/pkg/version"
 )
 
-// MainFunc is implemented by the main packages and passed to the `Run` function
+// RunFunc is implemented by the main packages and passed to the `Run` function
 // which takes care of signal handling, loading the runtime configuration and
-// setting up logging, the Axiom client, etc. It must block until the context
-// is marked done. Errors returned from the `MainFunc` should be created using
-// the `Error()` function.
-type MainFunc func(context.Context, *Factory) error
+// setting up logging, the Axiom client, etc. It must block until the context is
+// marked done. Errors returned from the `RunFunc` should be created using the
+// `Error()` function.
+type RunFunc func(context.Context, *zap.Logger, *axiom.Client) error
 
-// Run the named app with the given `MainFunc`. Additionally, options can be
+// Run the named app with the given `RunFunc`. Additionally, options can be
 // passed to configure the behaviour of the bootstrapping process.
-func Run(appName string, fn MainFunc, options ...Option) {
+func Run(appName string, fn RunFunc, options ...Option) {
 	if code := run(appName, fn, options...); code != exitOK {
 		code.exit()
 	}
 }
 
-func run(appName string, fn MainFunc, options ...Option) exitCode {
+func run(appName string, fn RunFunc, options ...Option) exitCode {
 	// Setup the default config and apply the supplied options.
 	cfg := &config{
 		loggerOptions: DefaultLoggerOptions(),
-		signals:       DefaultSignals(),
+		exitSignals:   DefaultExitSignals(),
 	}
 	for _, option := range options {
 		if err := option(cfg); err != nil {
@@ -45,7 +46,8 @@ func run(appName string, fn MainFunc, options ...Option) exitCode {
 		logger *zap.Logger
 		err    error
 	)
-	if v := os.Getenv("DEBUG"); v != "0" {
+
+	if v, _ := strconv.ParseBool(os.Getenv("DEBUG")); v {
 		logger, err = zap.NewDevelopment(cfg.loggerOptions...)
 	} else {
 		logger, err = zap.NewProduction(cfg.loggerOptions...)
@@ -83,11 +85,11 @@ func run(appName string, fn MainFunc, options ...Option) exitCode {
 	}
 
 	// Listen for termination signals.
-	ctx, cancel := signal.NotifyContext(context.Background(), cfg.signals...)
+	ctx, cancel := signal.NotifyContext(context.Background(), cfg.exitSignals...)
 	defer cancel()
 
 	// Create the Axiom client.
-	axiomClient, err := axiom.NewClient(cfg.axiomOptions...)
+	client, err := axiom.NewClient(cfg.axiomOptions...)
 	if err != nil {
 		logger.Error("create axiom client", zap.Error(err))
 		return exitConfig
@@ -95,29 +97,22 @@ func run(appName string, fn MainFunc, options ...Option) exitCode {
 
 	// If enabled, validate the credentials of the Axiom client.
 	if cfg.validateAxiomCredentials {
-		if err = axiomClient.ValidateCredentials(ctx); err != nil {
+		if err = client.ValidateCredentials(ctx); err != nil {
 			logger.Error("validate axiom credentials", zap.Error(err))
 			return exitConfig
 		}
 	}
 
-	// Setup the factory.
-	f := &Factory{
-		Cancel: cancel,
-		Logger: func(fields ...zap.Field) *zap.Logger { return logger.With(fields...) },
-		Axiom:  func() *axiom.Client { return axiomClient },
-	}
-
 	logger.Info("started")
 
-	// Call the actual `MainFunc`. If the returned error was composed using
+	// Call the actual `RunFunc`. If the returned error was composed using
 	// `cmd.Error()`, it can be logged properly. If not, logging the error is
 	// done as well but with less context to it.
-	if err = fn(ctx, f); err != nil {
+	if err = fn(ctx, logger, client); err != nil {
 		if mainErr, ok := err.(*mainFuncError); ok {
 			logger.Error(mainErr.msg, mainErr.Fields()...)
 		} else {
-			msg := fmt.Sprintf("%s.MainFunc", appName)
+			msg := fmt.Sprintf("%s.RunFunc", appName)
 			logger.Error(msg, zap.Error(err))
 		}
 		return exitInternal

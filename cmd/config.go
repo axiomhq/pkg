@@ -11,6 +11,6 @@ type config struct {
 	axiomOptions             []axiom.Option
 	loggerOptions            []zap.Option
 	requiredEnvVars          []string
-	signals                  []os.Signal
+	exitSignals              []os.Signal
 	validateAxiomCredentials bool
 }

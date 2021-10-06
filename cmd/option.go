@@ -39,12 +39,12 @@ func WithRequiredEnvVars(envVars ...string) Option {
 	}
 }
 
-// WithSignals sets the signals that will cause the program to exit gracefully.
-// If this option is not specified, the default signals are specified by the
-// `DefaultSignals()` function.
-func WithSignals(signals ...os.Signal) Option {
+// WithExitSignals sets the signals that will cause the program to exit
+// gracefully. If this option is not specified, the default signals are
+// specified by the `DefaultExitSignals()` function.
+func WithExitSignals(signals ...os.Signal) Option {
 	return func(c *config) error {
-		c.signals = signals
+		c.exitSignals = signals
 		return nil
 	}
 }
