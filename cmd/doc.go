@@ -4,7 +4,7 @@
 // understandable set of application.
 //
 // In the most basic case, applications should pass their name and an
-// implementation of `cmd.MainFunc` to `cmd.Run()`:
+// implementation of `cmd.RunFunc` to `cmd.Run()`:
 //
 //   package main
 //
@@ -15,11 +15,12 @@
 //   )
 //
 //   func main() {
-//       cmd.Run("my-app", Main)
+//       cmd.Run("my-app", Run)
 //   }
 //
-//   func Main(ctx context.Context, f *cmd.Factory) error {
-//       f.Logger().Info("hello, world!")
+//   func Run(_ context.Context, log *zap.Logger, _ *axiom.Client) error {
+//       log.Info("hello, world!")
+//
 //       return nil
 //   }
 //

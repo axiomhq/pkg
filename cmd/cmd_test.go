@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/axiomhq/axiom-go/axiom"
+	"go.uber.org/zap"
 
 	"github.com/axiomhq/pkg/cmd"
 )
@@ -14,7 +15,7 @@ func Example() {
 	os.Clearenv()
 	os.Setenv("DEBUG", "1")
 
-	mainFunc := func(_ context.Context, f *cmd.Factory) error {
+	mainFunc := func(_ context.Context, _ *zap.Logger, _ *axiom.Client) error {
 		// All your actual application code goes here! See doc.go for more info.
 
 		fmt.Print("Hello World!")
