@@ -17,8 +17,7 @@
 
 ## Introduction
 
-Package `pkg` is a collection of commonly used Go packages across Go based Axiom
-projects.
+Package `pkg` is a collection of useful Go packages.
 
 ## Installation
 
