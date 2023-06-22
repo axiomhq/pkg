@@ -1,6 +1,8 @@
 package workgate
 
 import (
+	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -75,7 +77,7 @@ func TestWorkGateDoAsync(t *testing.T) {
 			assert.LessOrEqual(t, state, maxWorkers)
 			assert.GreaterOrEqual(t, state, int32(0))
 			wg.Done()
-		})
+		}, nil)
 	}
 
 	wg.Wait()
@@ -87,7 +89,7 @@ func TestWorkGateClose(t *testing.T) {
 
 	gate.DoAsync(func() {
 		time.Sleep(time.Millisecond * 100)
-	})
+	}, nil)
 
 	gate.Close()
 
@@ -110,10 +112,161 @@ func TestWorkGateFull(t *testing.T) {
 	defer close(wait)
 	gate.DoAsync(func() {
 		<-wait
-	})
+	}, nil)
 
 	_, err := gate.TryDo(func() (interface{}, error) {
 		return "foo", nil
 	})
 	assert.Equal(t, ErrGateFull, err)
+}
+
+func TestResourceGateDoAsyncRecover(t *testing.T) {
+	gate := New(1000)
+
+	errs := make(chan error, 10)
+
+	for i := 0; i < 10; i++ {
+		i2 := i
+		gate.DoAsync(
+			func() {
+				if i2%2 == 1 {
+					panic("its odd")
+				}
+				errs <- nil
+			},
+			func(err error) {
+				errs <- err
+			},
+		)
+	}
+	var panics, succeses int
+	for i := 0; i < 10; i++ {
+		err := <-errs
+		if err != nil {
+			assert.Equal(t, err, errors.New("panic recovered: its odd"))
+			panics++
+		} else {
+			succeses++
+		}
+	}
+	assert.EqualValues(t, 5, panics)
+	assert.EqualValues(t, 5, succeses)
+}
+
+func TestResourceGateDoAsyncContextRecover(t *testing.T) {
+	gate := New(1000)
+
+	errs := make(chan error, 10)
+
+	for i := 0; i < 10; i++ {
+		i2 := i
+		gate.DoAsyncContext(
+			context.TODO(),
+			func() {
+				if i2%2 == 1 {
+					panic("its odd")
+				}
+				errs <- nil
+			},
+			func(err error) {
+				errs <- err
+			},
+		)
+	}
+	var panics, succeses int
+	for i := 0; i < 10; i++ {
+		err := <-errs
+		if err != nil {
+			assert.Equal(t, err, errors.New("panic recovered: its odd"))
+			panics++
+		} else {
+			succeses++
+		}
+	}
+	assert.EqualValues(t, 5, panics)
+	assert.EqualValues(t, 5, succeses)
+}
+
+func TestResourceGateDoAsyncRecoverWithError(t *testing.T) {
+	gate := New(1000)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	gate.DoAsync(
+		func() { panic(errors.New("error")) },
+		func(err error) {
+			assert.Equal(t, errors.Unwrap(err), errors.New("error"))
+			wg.Done()
+		},
+	)
+	wg.Wait()
+}
+
+func TestResourceGateDoAsyncContextRecoverWithError(t *testing.T) {
+	gate := New(1000)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	gate.DoAsyncContext(
+		context.TODO(),
+		func() { panic(errors.New("error")) },
+		func(err error) {
+			assert.Equal(t, errors.Unwrap(err), errors.New("error"))
+			wg.Done()
+		},
+	)
+	wg.Wait()
+}
+
+func TestResourceGateDoAsyncContextCanceledContext(t *testing.T) {
+	gate := New(50)
+	ctx, cancel := context.WithCancel(context.Background())
+	var c atomic.Int32
+	var e atomic.Int32
+	wg := sync.WaitGroup{}
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		gate.DoAsyncContext(ctx,
+			func() {
+				time.Sleep(100 * time.Millisecond)
+				c.Add(1)
+				wg.Done()
+			},
+			func(err error) {
+				assert.Equal(t, err, errors.New("context canceled"))
+				c.Add(1)
+				e.Add(1)
+				wg.Done()
+			},
+		)
+	}
+	cancel()
+
+	wg.Wait()
+	assert.EqualValues(t, 100, c.Load())
+	assert.GreaterOrEqual(t, e.Load(), int32(1))
+}
+
+func TestResourceGateDoAsyncGateClosed(t *testing.T) {
+	gate := New(1000)
+	gate.Close()
+	err := gate.DoAsync(
+		func() {},
+		nil,
+	)
+	assert.Equal(t, err, ErrGateClosed)
+}
+
+func TestResourceGateDoAsyncContextGateClosed(t *testing.T) {
+	gate := New(1000)
+	gate.Close()
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	gate.DoAsyncContext(
+		context.TODO(),
+		func() { panic(errors.New("error")) },
+		func(err error) {
+			assert.Equal(t, err, ErrGateClosed)
+			wg.Done()
+		},
+	)
+	wg.Wait()
 }

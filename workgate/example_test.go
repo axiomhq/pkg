@@ -1,4 +1,4 @@
-//nolint: goconst // using consts in examples makes them harder to read
+// nolint: goconst // using consts in examples makes them harder to read
 package workgate
 
 import "fmt"
@@ -19,11 +19,17 @@ func ExampleWorkGate_Do() {
 func ExampleWorkGate_DoAsync() {
 	wg := New(10)
 	done := make(chan struct{})
-	wg.DoAsync(func() {
-		// Do some work (async)
-		fmt.Println("foo")
-		close(done)
-	})
+	wg.DoAsync(
+		func() {
+			// Do some work (async)
+			fmt.Println("foo")
+			close(done)
+		},
+		func(err error) {
+			fmt.Println(err)
+			close(done)
+		},
+	)
 	<-done
 	// Output: foo
 }
@@ -34,9 +40,12 @@ func ExampleWorkGate_TryDo() {
 	// Make sure the gate is full
 	free := make(chan struct{})
 	for i := 0; i < 10; i++ {
-		wg.DoAsync(func() {
-			<-free
-		})
+		wg.DoAsync(
+			func() {
+				<-free
+			},
+			nil,
+		)
 	}
 	defer close(free)
 
