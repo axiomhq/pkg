@@ -3,6 +3,7 @@ package workgate
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync/atomic"
 )
 
@@ -88,17 +89,46 @@ func (wg *WorkGate) TryDo(task func() (interface{}, error)) (res interface{}, er
 	}
 }
 
-// DoAsyncContext is like DoAsync but accepts a context and will stop waiting
-// if that is cancelled.
-func (wg *WorkGate) DoAsyncContext(ctx context.Context, task func()) {
+// DoAsyncContext is like DoAsync but accepts a context
+// if that is cancelled it will stop waiting and the errorHandler fuction will be called with ctx.Err()
+// If the gate is closed the errorHandler fuction will be called with ErrGateClosed
+// If the task panics the errorHandler fuction will be called with the recovered panic.
+// If errorHandler is nil panics won't be recovered.
+func (wg *WorkGate) DoAsyncContext(ctx context.Context, task func(), errorHandler func(error)) {
 	go func() {
-		defer func() { _ = recover() }()
+		// Handle wg.q <- struct{}{} panic
+		defer func() {
+			if r := recover(); r != nil {
+				if errorHandler == nil {
+					return
+				}
+				errorHandler(ErrGateClosed)
+			}
+		}()
 
 		select {
 		case <-ctx.Done():
+			if errorHandler == nil {
+				return
+			}
+			errorHandler(ctx.Err())
 			return
 		case wg.q <- struct{}{}: // same as wg.Enter()
-			defer wg.Leave()
+			defer func() {
+				wg.Leave()
+				if errorHandler == nil {
+					return
+				}
+				if r := recover(); r != nil {
+					var err error
+					if e, ok := r.(error); ok {
+						err = fmt.Errorf("panic recovered: %w", e)
+					} else {
+						err = fmt.Errorf("panic recovered: %v", r)
+					}
+					errorHandler(err)
+				}
+			}()
 			task()
 		}
 	}()
@@ -106,11 +136,30 @@ func (wg *WorkGate) DoAsyncContext(ctx context.Context, task func()) {
 
 // DoAsync executes the task in a goroutine.
 // Note that it will block if all slots are currently occupied
-func (wg *WorkGate) DoAsync(task func()) {
+// If the gate is closed it returns ErrGateClosed
+// If the task panics the errorHandler fuction will be called with the recovered panic.
+// If errorHandler is nil panics won't be recovered.
+func (wg *WorkGate) DoAsync(task func(), errorHandler func(error)) error {
 	if wg.Enter() {
 		go func() {
-			defer wg.Leave()
+			defer func() {
+				wg.Leave()
+				if errorHandler == nil {
+					return
+				}
+				if r := recover(); r != nil {
+					var err error
+					if e, ok := r.(error); ok {
+						err = fmt.Errorf("panic recovered: %w", e)
+					} else {
+						err = fmt.Errorf("panic recovered: %v", r)
+					}
+					errorHandler(err)
+				}
+			}()
 			task()
 		}()
+		return nil
 	}
+	return ErrGateClosed
 }
