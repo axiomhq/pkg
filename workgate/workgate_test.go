@@ -219,21 +219,21 @@ func TestResourceGateDoAsyncContextRecoverWithError(t *testing.T) {
 func TestResourceGateDoAsyncContextCanceledContext(t *testing.T) {
 	gate := New(50)
 	ctx, cancel := context.WithCancel(context.Background())
-	var c atomic.Int32
-	var e atomic.Int32
+	var c int32
+	var e int32
 	wg := sync.WaitGroup{}
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
 		gate.DoAsyncContext(ctx,
 			func() {
 				time.Sleep(100 * time.Millisecond)
-				c.Add(1)
+				atomic.AddInt32(&c, 1)
 				wg.Done()
 			},
 			func(err error) {
 				assert.Equal(t, err, errors.New("context canceled"))
-				c.Add(1)
-				e.Add(1)
+				atomic.AddInt32(&c, 1)
+				atomic.AddInt32(&e, 1)
 				wg.Done()
 			},
 		)
@@ -241,8 +241,8 @@ func TestResourceGateDoAsyncContextCanceledContext(t *testing.T) {
 	cancel()
 
 	wg.Wait()
-	assert.EqualValues(t, 100, c.Load())
-	assert.GreaterOrEqual(t, e.Load(), int32(1))
+	assert.EqualValues(t, 100, c)
+	assert.GreaterOrEqual(t, e, int32(1))
 }
 
 func TestResourceGateDoAsyncGateClosed(t *testing.T) {
