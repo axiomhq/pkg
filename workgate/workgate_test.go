@@ -143,7 +143,9 @@ func TestResourceGateDoAsyncRecover(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		err := <-errs
 		if err != nil {
-			assert.Equal(t, err, errors.New("panic recovered: its odd"))
+			if assert.Error(t, err) {
+				assert.Contains(t, err.Error(), "panic recovered: its odd")
+			}
 			panics++
 		} else {
 			succeses++
@@ -177,7 +179,9 @@ func TestResourceGateDoAsyncContextRecover(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		err := <-errs
 		if err != nil {
-			assert.Equal(t, err, errors.New("panic recovered: its odd"))
+			if assert.Error(t, err) {
+				assert.Contains(t, err.Error(), "panic recovered: its odd")
+			}
 			panics++
 		} else {
 			succeses++

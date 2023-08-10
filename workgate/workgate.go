@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime/debug"
 	"sync/atomic"
 )
 
@@ -122,9 +123,9 @@ func (wg *WorkGate) DoAsyncContext(ctx context.Context, task func(), errorHandle
 				if r := recover(); r != nil {
 					var err error
 					if e, ok := r.(error); ok {
-						err = fmt.Errorf("panic recovered: %w", e)
+						err = fmt.Errorf("panic recovered: %w, stacktrace: %s", e, debug.Stack())
 					} else {
-						err = fmt.Errorf("panic recovered: %v", r)
+						err = fmt.Errorf("panic recovered: %v, stacktrace: %s", r, debug.Stack())
 					}
 					errorHandler(err)
 				}
