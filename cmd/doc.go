@@ -6,22 +6,21 @@
 // In the most basic case, applications should pass their name and an
 // implementation of `cmd.RunFunc` to `cmd.Run()`:
 //
-//   package main
+//	package main
 //
-//   import (
-//       "context"
+//	import (
+//	    "context"
 //
-//       "github.com/axiomhq/pkg/cmd"
-//   )
+//	    "github.com/axiomhq/pkg/cmd"
+//	)
 //
-//   func main() {
-//       cmd.Run("my-app", Run)
-//   }
+//	func main() {
+//	    cmd.Run("my-app", Run)
+//	}
 //
-//   func Run(_ context.Context, log *zap.Logger, _ *axiom.Client) error {
-//       log.Info("hello, world!")
+//	func Run(_ context.Context, log *zap.Logger, _ *axiom.Client) error {
+//	    log.Info("hello, world!")
 //
-//       return nil
-//   }
-//
+//	    return nil
+//	}
 package cmd
