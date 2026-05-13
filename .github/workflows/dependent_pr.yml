@@ -23,6 +23,7 @@ jobs:
       contents: read
       issues: write
       pull-requests: write
+      statuses: write
     if: github.repository_owner == 'axiomhq' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
     steps:
       - uses: z0al/dependent-issues@950226e7ca8fc43dc209a7febf67c655af3bdb43 # v1
@@ -32,3 +33,4 @@ jobs:
         with:
           label: dependent
           keywords: depends on, blocked by, needs
+          ignore_dependabot: "on"
