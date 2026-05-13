@@ -68,7 +68,7 @@ func TestWorkGateDoAsync(t *testing.T) {
 	// Spawn parallel workers galore ensuring we never have more than maxWorkers concurrently
 	for i := int32(0); i < numWorkers; i++ {
 		wg.Add(1)
-		gate.DoAsync(func() {
+		_ = gate.DoAsync(func() {
 			assert.LessOrEqual(t, atomic.AddInt32(&numParallel, 1), maxWorkers)
 
 			time.Sleep(time.Duration(workerSleepTime))
@@ -87,7 +87,7 @@ func TestWorkGateDoAsync(t *testing.T) {
 func TestWorkGateClose(t *testing.T) {
 	gate := New(2)
 
-	gate.DoAsync(func() {
+	_ = gate.DoAsync(func() {
 		time.Sleep(time.Millisecond * 100)
 	}, nil)
 
@@ -110,12 +110,12 @@ func TestWorkGateFull(t *testing.T) {
 
 	wait := make(chan struct{})
 	defer close(wait)
-	gate.DoAsync(func() {
+	_ = gate.DoAsync(func() {
 		<-wait
 	}, nil)
 
 	_, err := gate.TryDo(func() (interface{}, error) {
-		return "foo", nil
+		return nil, nil
 	})
 	assert.Equal(t, ErrGateFull, err)
 }
@@ -127,7 +127,7 @@ func TestResourceGateDoAsyncRecover(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		i2 := i
-		gate.DoAsync(
+		_ = gate.DoAsync(
 			func() {
 				if i2%2 == 1 {
 					panic("its odd")
@@ -195,7 +195,7 @@ func TestResourceGateDoAsyncRecoverWithError(t *testing.T) {
 	gate := New(1000)
 	wg := sync.WaitGroup{}
 	wg.Add(1)
-	gate.DoAsync(
+	_ = gate.DoAsync(
 		func() { panic(errors.New("error")) },
 		func(err error) {
 			assert.Equal(t, errors.Unwrap(err), errors.New("error"))
