@@ -15,7 +15,7 @@ import (
 
 func TestServer(t *testing.T) {
 	// A slow handler function.
-	hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	hf := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(time.Second * 2)
 		_, _ = w.Write([]byte("hello world"))
 	})
